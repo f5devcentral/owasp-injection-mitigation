@@ -41,7 +41,6 @@ Automation scope is achieved by implementing below steps: <br />
 ---
 1.	Make sure your AWS credentials are valid and configured in secrets as below:
 ![image](https://user-images.githubusercontent.com/6093830/203716693-67fbc040-d835-46d5-94ec-8db8adaa02dc.png) <br />
-<br />
 2.	Check the `variables.tf` and update `api_url`, `domain` fields and needed LB domain name as per your tenant <br />
 3.	Open `test_sql_injection.py` file and update your LB domain name in field `pub_dns` <br />
 4.	Navigate to `Actions` tab in the repository and select the workflow to execute <br />
