@@ -1,0 +1,36 @@
+
+name: 'Testing Injection Attack'
+
+on:
+  # push:
+    # branches: [ "main" ]
+  #pull_request:
+   # branches: [ "main" ]
+    
+  workflow_dispatch:
+
+permissions: write-all
+
+jobs:
+  Testing:
+    name: 'Injection Attack Testing'
+    runs-on: ubuntu-latest
+
+    # Use the Bash shell regardless whether the GitHub Actions runner is ubuntu-latest, macos-latest, or windows-latest
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+    # Checkout the repository to the GitHub Actions runner
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Install the necessary packages
+      run: pip3 install requests packaging
+      
+    # start testing
+    - name: Test Injection attack
+      run: |
+        sleep 10
+        python3 test_sql_injection.py          

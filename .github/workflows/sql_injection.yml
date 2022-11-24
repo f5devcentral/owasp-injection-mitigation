@@ -1,0 +1,134 @@
+
+name: 'Automation of Injection Attacks'
+
+on:
+  # push:
+    # branches: [ "main" ]
+  #pull_request:
+   # branches: [ "main" ]
+    
+  workflow_dispatch:
+
+permissions: write-all
+
+jobs:
+  Deploy:
+    name: 'Deploy Infra'
+    runs-on: ubuntu-latest
+
+    # Use the Bash shell regardless whether the GitHub Actions runner is ubuntu-latest, macos-latest, or windows-latest
+    defaults:
+      run:
+        shell: bash
+
+    steps:    
+    # Checkout the repository to the GitHub Actions runner
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    # Install the latest version of Terraform CLI and configure the Terraform CLI configuration file with a Terraform Cloud user API token
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v1
+    
+    - name: Configure AWS Credentials 
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{secrets.AWS_ACCESS_KEY_ID}}
+        aws-secret-access-key: ${{secrets.AWS_SECRET_ACCESS_KEY}}
+        aws-session-token: ${{secrets.AWS_SESSION_TOKEN}}
+        aws-region: ap-south-1
+        
+    # Move to Application directory and deploy application
+    - name: Deploy Application
+      run: |
+        cd application
+        terraform init
+        terraform plan -out=plan.out
+        terraform apply -auto-approve plan.out
+        echo pub_ip=$(terraform-bin output -raw ec2_public_ip) >> $GITHUB_ENV
+        
+    - name: Upload application tfstate file
+      uses: actions/upload-artifact@v3
+      with:
+        name: tfstate1
+        path: application/terraform.tfstate
+
+    # Initialize a new or existing Terraform working directory by creating initial files, loading any remote state, downloading modules, etc.
+    - name: Deploy load balancer
+      run: |
+        terraform init
+        terraform plan -out=plan.out -var originip=${pub_ip}
+        terraform apply -auto-approve plan.out 
+        
+    - name: Upload F5 XC resources tfstate file
+      uses: actions/upload-artifact@v3
+      with:
+        name: tfstate2
+        path: terraform.tfstate
+    
+  Testing:
+    name: 'Injection Attack Testing'
+    runs-on: ubuntu-latest
+    needs: Deploy
+
+    # Use the Bash shell regardless whether the GitHub Actions runner is ubuntu-latest, macos-latest, or windows-latest
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+    # Checkout the repository to the GitHub Actions runner
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Install the necessary packages
+      run: pip3 install requests packaging
+      
+    # start testing
+    - name: Test Injection Attack
+      run: |
+        sleep 30
+        python3 test_sql_injection.py
+            
+  Destroy:
+    needs: [Deploy, Testing]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+ 
+       # Install the latest version of Terraform CLI and configure the Terraform CLI configuration file with a Terraform Cloud user API token
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v1
+
+      - name: Configure AWS Credentials 
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{secrets.AWS_ACCESS_KEY_ID}}
+          aws-secret-access-key: ${{secrets.AWS_SECRET_ACCESS_KEY}}
+          aws-session-token: ${{secrets.AWS_SESSION_TOKEN}}
+          aws-region: ap-south-1
+          
+      - name: Download application tfsate file
+        uses: actions/download-artifact@v3
+        with:
+          name: tfstate1
+          
+      - name: Destroy application infra in cloud
+        run: |
+          cp ./terraform.tfstate ./application/ 
+          cd application          
+          terraform init
+          terraform plan -destroy 
+          terraform destroy -auto-approve  
+          
+      - name: Download F5 XC resources tfstate file
+        uses: actions/download-artifact@v3
+        with:
+          name: tfstate2
+          
+      - name: Destroy infra in F5 XC
+        run: |       
+          terraform init
+          terraform plan -destroy 
+          terraform destroy -auto-approve    
