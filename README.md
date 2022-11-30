@@ -13,7 +13,7 @@
 
 **Deployment design:**<br />
 ---
-Automation scope is achieved by implementing below steps: <br />
+Automation scope is achieved by implementing below steps using `Terraform` and `Python`: <br />
 1.	Deploy a demo application in AWS which hosts JuiceShop as vulnerable application. Refer https://owasp.org/www-project-juice-shop/ for more info <br />
 2.	Deploy origin pool, WAF and load balancer in F5 XC using above created backend server public IP <br />
 3.	Generate and send malicious SQL login payload request to above LB domain using python <br />
